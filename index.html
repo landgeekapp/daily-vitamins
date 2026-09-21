@@ -68,6 +68,33 @@
       color: var(--ink-muted);
     }
 
+
+    .storage-warning {
+      display: none;
+      margin: 14px 0 0;
+      padding: 12px 14px;
+      background: var(--danger-soft);
+      color: var(--danger);
+      border: 1px solid rgba(184, 92, 74, 0.25);
+      border-radius: 12px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .storage-warning.show { display: block; }
+
+    .saved-indicator {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent);
+      opacity: 0;
+      transition: opacity 0.2s;
+      margin-left: 8px;
+    }
+
+    .saved-indicator.show { opacity: 1; }
+
     .status-bar {
       display: flex;
       gap: 10px;
@@ -701,7 +728,11 @@
         <h1>Daily Vitamins</h1>
         <span class="streak-label" id="streakLabel" hidden>Streak: 0</span>
       </div>
-      <p class="subtitle" id="dateLabel">Today</p>
+      <p class="subtitle" id="dateLabel">Today <span class="saved-indicator" id="savedIndicator" aria-live="polite">Saved</span></p>
+
+    <div class="storage-warning" id="storageWarning" role="alert">
+      Saving is blocked in this browser — use Export backup.
+    </div>
     </header>
 
     <div class="status-bar" aria-live="polite">
@@ -800,33 +831,11 @@
   "use strict";
 
   var STORAGE_KEY = "daily-vitamins-v1";
-  var DEFAULTS = {
-    vitamins: {
-      morning: [
-        { id: uid(), name: "Multivitamin" },
-        { id: uid(), name: "Vitamin D", schedule: "everyOther", scheduleStart: "2026-09-20" },
-        { id: uid(), name: "Omega-3" }
-      ],
-      night: [
-        { id: uid(), name: "Magnesium" },
-        { id: uid(), name: "Zinc" }
-      ]
-    },
-    checks: { morning: {}, night: {} },
-    dayKey: todayKey(),
-    streak: { count: 0, lastPerfectDay: null },
-    celebrationPlayedForDay: null,
-    settings: {
-      remindersEnabled: false,
-      morningTime: "08:00",
-      nightTime: "21:00",
-      lastFired: { morning: null, night: null }
-    }
-  };
-
-  var state = loadState();
-  var editingId = null;
-  var reminderTimer = null;
+  var BACKUP_KEY = "daily-vitamins-v1-backup";
+  var IDB_NAME = "daily-vitamins-db";
+  var IDB_STORE = "kv";
+  var storageBlocked = false;
+  var pendingStorageWarning = false;
 
   function uid() {
     return "v_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
@@ -840,25 +849,230 @@
     return y + "-" + m + "-" + day;
   }
 
-  function loadState() {
+  function makeDefaultState() {
+    return {
+      vitamins: {
+        morning: [
+          { id: "morning-multivitamin", name: "Multivitamin", schedule: "daily" },
+          { id: "morning-vitamin-d", name: "Vitamin D", schedule: "everyOther", scheduleStart: "2026-09-20" },
+          { id: "morning-omega-3", name: "Omega-3", schedule: "daily" }
+        ],
+        night: [
+          { id: "night-magnesium", name: "Magnesium", schedule: "daily" },
+          { id: "night-zinc", name: "Zinc", schedule: "daily" }
+        ]
+      },
+      checks: { morning: {}, night: {} },
+      checksByName: { morning: {}, night: {} },
+      dayKey: todayKey(),
+      streak: { count: 0, lastPerfectDay: null },
+      celebrationPlayedForDay: null,
+      settings: {
+        remindersEnabled: false,
+        morningTime: "08:00",
+        nightTime: "21:00",
+        lastFired: { morning: null, night: null }
+      }
+    };
+  }
+
+  function showStorageWarning() {
+    storageBlocked = true;
+    var el = document.getElementById("storageWarning");
+    if (el) {
+      el.classList.add("show");
+      pendingStorageWarning = false;
+    } else {
+      pendingStorageWarning = true;
+    }
+  }
+
+  function hideStorageWarning() {
+    storageBlocked = false;
+    pendingStorageWarning = false;
+    var el = document.getElementById("storageWarning");
+    if (el) el.classList.remove("show");
+  }
+
+  function flashSaved() {
+    var el = document.getElementById("savedIndicator");
+    if (!el || storageBlocked) return;
+    el.classList.add("show");
+    clearTimeout(flashSaved._t);
+    flashSaved._t = setTimeout(function () {
+      el.classList.remove("show");
+    }, 1200);
+  }
+
+  function idbOpen() {
+    return new Promise(function (resolve, reject) {
+      if (!("indexedDB" in window)) {
+        reject(new Error("IndexedDB unavailable"));
+        return;
+      }
+      var req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error || new Error("IDB open failed")); };
+    });
+  }
+
+  function idbSet(json) {
+    return idbOpen().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(IDB_STORE, "readwrite");
+        tx.objectStore(IDB_STORE).put(json, STORAGE_KEY);
+        tx.oncomplete = function () { resolve(true); };
+        tx.onerror = function () { reject(tx.error || new Error("IDB write failed")); };
+      });
+    });
+  }
+
+  function idbGet() {
+    return idbOpen().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(IDB_STORE, "readonly");
+        var req = tx.objectStore(IDB_STORE).get(STORAGE_KEY);
+        req.onsuccess = function () { resolve(req.result || null); };
+        req.onerror = function () { reject(req.error || new Error("IDB read failed")); };
+      });
+    });
+  }
+
+  function emptyChecks() {
+    return { morning: {}, night: {} };
+  }
+
+  function syncChecksByName() {
+    if (!state.checks) state.checks = emptyChecks();
+    if (!state.checksByName) state.checksByName = emptyChecks();
+    ["morning", "night"].forEach(function (section) {
+      if (!state.checks[section]) state.checks[section] = {};
+      if (!state.checksByName[section]) state.checksByName[section] = {};
+      var byId = state.checks[section];
+      var byName = state.checksByName[section];
+      var vitamins = state.vitamins[section] || [];
+      vitamins.forEach(function (v) {
+        if (!v || !v.id) return;
+        var name = v.name;
+        if (byId[v.id]) {
+          if (name) byName[name] = true;
+        } else if (name && byName[name]) {
+          byId[v.id] = true;
+        }
+      });
+    });
+  }
+
+  function setCheck(section, id, name, checked) {
+    if (!state.checks[section]) state.checks[section] = {};
+    if (!state.checksByName[section]) state.checksByName[section] = {};
+    if (checked) {
+      state.checks[section][id] = true;
+      if (name) state.checksByName[section][name] = true;
+    } else {
+      delete state.checks[section][id];
+      if (name) delete state.checksByName[section][name];
+    }
+  }
+
+  function findVitamin(section, id) {
+    var items = state.vitamins[section] || [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].id === id) return items[i];
+    }
+    return null;
+  }
+
+  function checksEqual(a, b) {
+    a = a || {};
+    b = b || {};
+    var keys = {};
+    Object.keys(a).forEach(function (k) { keys[k] = true; });
+    Object.keys(b).forEach(function (k) { keys[k] = true; });
+    return Object.keys(keys).every(function (k) { return !!a[k] === !!b[k]; });
+  }
+
+  function verifyStorageRoundTrip() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return structuredClone(DEFAULTS);
+      if (!raw) raw = localStorage.getItem(BACKUP_KEY);
+      if (!raw) return false;
       var parsed = JSON.parse(raw);
-      return migrate(parsed);
+      if (!parsed || !parsed.checks) return false;
+      syncChecksByName();
+      return (
+        checksEqual(parsed.checks.morning, state.checks.morning) &&
+        checksEqual(parsed.checks.night, state.checks.night)
+      );
     } catch (e) {
-      return structuredClone(DEFAULTS);
+      console.error("Storage round-trip verify failed:", e);
+      return false;
+    }
+  }
+
+  function readLocalStorageRaw() {
+    var raw = null;
+    var err = null;
+    try {
+      raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) raw = localStorage.getItem(BACKUP_KEY);
+    } catch (e) {
+      err = e;
+      console.error("localStorage read failed:", e);
+    }
+    return { raw: raw, error: err };
+  }
+
+  function loadState() {
+    var result = readLocalStorageRaw();
+    if (result.error) {
+      pendingStorageWarning = true;
+      return makeDefaultState();
+    }
+    if (!result.raw) return makeDefaultState();
+    try {
+      return migrate(JSON.parse(result.raw));
+    } catch (e) {
+      console.error("State parse failed:", e);
+      pendingStorageWarning = true;
+      return makeDefaultState();
     }
   }
 
   function migrate(parsed) {
-    var base = structuredClone(DEFAULTS);
+    var base = makeDefaultState();
     if (!parsed || typeof parsed !== "object") return base;
     if (parsed.vitamins && parsed.vitamins.morning && parsed.vitamins.night) {
       base.vitamins = parsed.vitamins;
     }
-    if (parsed.checks) base.checks = parsed.checks;
-    if (parsed.dayKey) base.dayKey = parsed.dayKey;
+    if (parsed.checks) {
+      base.checks = {
+        morning: Object.assign({}, parsed.checks.morning || {}),
+        night: Object.assign({}, parsed.checks.night || {})
+      };
+    }
+    if (parsed.checksByName) {
+      base.checksByName = {
+        morning: Object.assign({}, parsed.checksByName.morning || {}),
+        night: Object.assign({}, parsed.checksByName.night || {})
+      };
+    } else {
+      base.checksByName = emptyChecks();
+    }
+    // Preserve explicit dayKey (including missing → leave as today from factory,
+    // but track missing so ensureDay won't clear). Use a sentinel via property.
+    if (Object.prototype.hasOwnProperty.call(parsed, "dayKey") && parsed.dayKey) {
+      base.dayKey = parsed.dayKey;
+    } else if (!Object.prototype.hasOwnProperty.call(parsed, "dayKey") || !parsed.dayKey) {
+      // Missing dayKey: mark so ensureDay only sets date, does not clear checks
+      base.dayKey = null;
+    }
     if (parsed.settings) {
       base.settings = Object.assign({}, base.settings, parsed.settings);
       if (!base.settings.lastFired) base.settings.lastFired = { morning: null, night: null };
@@ -883,26 +1097,114 @@
           v.scheduleStart = "2026-09-20";
         }
         if (!v.schedule) v.schedule = "daily";
+        if (!v.id) v.id = uid();
+      });
+    });
+    // Rebuild checks from checksByName (and sync names from ids)
+    var tmpState = base;
+    ["morning", "night"].forEach(function (section) {
+      if (!tmpState.checks[section]) tmpState.checks[section] = {};
+      if (!tmpState.checksByName[section]) tmpState.checksByName[section] = {};
+      var byId = tmpState.checks[section];
+      var byName = tmpState.checksByName[section];
+      (tmpState.vitamins[section] || []).forEach(function (v) {
+        if (!v || !v.id) return;
+        if (byId[v.id]) {
+          if (v.name) byName[v.name] = true;
+        } else if (v.name && byName[v.name]) {
+          byId[v.id] = true;
+        }
       });
     });
     return base;
   }
 
   function saveState() {
+    syncChecksByName();
+    var json;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch (e) { /* ignore quota */ }
+      json = JSON.stringify(state);
+    } catch (e) {
+      console.error("Failed to serialize state:", e);
+      showStorageWarning();
+      return false;
+    }
+    var lsOk = false;
+    try {
+      localStorage.setItem(STORAGE_KEY, json);
+      localStorage.setItem(BACKUP_KEY, json);
+      lsOk = true;
+    } catch (e) {
+      console.error("localStorage save failed:", e);
+      showStorageWarning();
+    }
+    // Belt-and-suspenders: IndexedDB (especially if LS failed)
+    idbSet(json).then(function () {
+      if (!lsOk) {
+        // IDB saved when LS could not — still warn because primary path is blocked
+        showStorageWarning();
+      }
+    }).catch(function (e) {
+      console.error("IndexedDB save failed:", e);
+      if (!lsOk) showStorageWarning();
+    });
+    if (lsOk) {
+      hideStorageWarning();
+      flashSaved();
+    }
+    return lsOk;
   }
 
   function ensureDay() {
     var key = todayKey();
+    // Missing dayKey (first paint / migrated without day): set today, do NOT clear checks
+    if (!state.dayKey) {
+      state.dayKey = key;
+      saveState();
+      return;
+    }
     if (state.dayKey !== key) {
       state.dayKey = key;
-      state.checks = { morning: {}, night: {} };
+      state.checks = emptyChecks();
+      state.checksByName = emptyChecks();
+      if (!state.settings) state.settings = {};
       state.settings.lastFired = { morning: null, night: null };
       saveState();
     }
   }
+
+  var state = loadState();
+  var editingId = null;
+  var reminderTimer = null;
+
+  // If localStorage was empty/blocked, try IndexedDB asynchronously
+  (function hydrateFromIdbIfNeeded() {
+    var result = readLocalStorageRaw();
+    var needsIdb = !!result.error || !result.raw;
+    if (!needsIdb) {
+      if (pendingStorageWarning) showStorageWarning();
+      return;
+    }
+    idbGet().then(function (raw) {
+      if (!raw) {
+        if (pendingStorageWarning || result.error) showStorageWarning();
+        return;
+      }
+      try {
+        var parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+        state = migrate(parsed);
+        // Re-persist to LS if possible
+        saveState();
+        render();
+      } catch (e) {
+        console.error("IndexedDB hydrate failed:", e);
+        showStorageWarning();
+      }
+    }).catch(function (e) {
+      console.error("IndexedDB read failed:", e);
+      if (pendingStorageWarning || result.error) showStorageWarning();
+    });
+  })();
 
   function formatDateLabel(key) {
     var parts = key.split("-");
@@ -1193,13 +1495,17 @@
 
   function toggleCheck(section, id) {
     ensureDay();
-    if (!state.checks[section]) state.checks[section] = {};
-    if (state.checks[section][id]) {
-      delete state.checks[section][id];
-    } else {
-      state.checks[section][id] = true;
+    var item = findVitamin(section, id);
+    var name = item ? item.name : null;
+    var currently = !!(state.checks[section] && state.checks[section][id]);
+    setCheck(section, id, name, !currently);
+    var ok = saveState();
+    if (ok && !verifyStorageRoundTrip()) {
+      console.error("Storage round-trip mismatch after toggle");
+      showStorageWarning();
+    } else if (!ok) {
+      showStorageWarning();
     }
-    saveState();
     render();
   }
 
@@ -1218,6 +1524,8 @@
     var items = state.vitamins[section];
     for (var i = 0; i < items.length; i++) {
       if (items[i].id === id) {
+        var oldName = items[i].name;
+        var wasChecked = !!(state.checks[section] && state.checks[section][id]);
         items[i].name = name;
         if (schedule === "everyOther") {
           items[i].schedule = "everyOther";
@@ -1227,6 +1535,13 @@
         } else if (!items[i].schedule) {
           items[i].schedule = "daily";
         }
+        if (!state.checksByName[section]) state.checksByName[section] = {};
+        if (oldName && oldName !== name) {
+          delete state.checksByName[section][oldName];
+        }
+        if (wasChecked) {
+          state.checksByName[section][name] = true;
+        }
         break;
       }
     }
@@ -1235,10 +1550,15 @@
   }
 
   function removeVitamin(section, id) {
+    var removed = null;
     state.vitamins[section] = state.vitamins[section].filter(function (v) {
-      return v.id !== id;
+      if (v.id === id) { removed = v; return false; }
+      return true;
     });
     if (state.checks[section]) delete state.checks[section][id];
+    if (removed && state.checksByName[section]) {
+      delete state.checksByName[section][removed.name];
+    }
     if (editingId === id) editingId = null;
     saveState();
     render();
@@ -1262,9 +1582,11 @@
 
   function exportBackup() {
     try {
+      syncChecksByName();
       var payload = {
         vitamins: state.vitamins,
         checks: state.checks,
+        checksByName: state.checksByName,
         dayKey: state.dayKey,
         settings: state.settings,
         streak: state.streak,
@@ -1473,6 +1795,7 @@
   render();
   updateNotifHint();
   startReminderLoop();
+  if (pendingStorageWarning || storageBlocked) showStorageWarning();
 })();
   </script>
 </body>
