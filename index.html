@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#f7f5f2" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Vitamins" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="data:application/json,{"name":"Daily Vitamins","short_name":"Vitamins","display":"standalone","start_url":".","background_color":"%23f7f5f2","theme_color":"%23f7f5f2"}" />
+
+  <meta name="description" content="A calm daily vitamin checklist that resets every midnight." />
+  <title>Daily Vitamins</title>
+  <style>
+    :root {
+      --bg: #f7f5f2;
+      --surface: #ffffff;
+      --surface-muted: #f0ede8;
+      --ink: #2c2a26;
+      --ink-muted: #7a756c;
+      --ink-faint: #a8a29a;
+      --accent: #5b7c6a;
+      --accent-soft: #e4efe9;
+      --accent-hover: #4a6858;
+      --border: #e6e1da;
+      --danger: #b85c4a;
+      --danger-soft: #f8ebe8;
+      --shadow: 0 1px 2px rgba(44, 42, 38, 0.04), 0 8px 24px rgba(44, 42, 38, 0.06);
+      --radius: 16px;
+      --tap: 52px;
+      --font: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.45;
+      min-height: 100dvh;
+      padding: 24px 16px 48px;
+      padding-bottom: max(48px, env(safe-area-inset-bottom));
+    }
+
+    .app {
+      max-width: 440px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 20px;
+    }
+
+    header h1 {
+      font-size: 1.65rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+
+    .subtitle {
+      margin-top: 6px;
+      font-size: 0.9rem;
+      color: var(--ink-muted);
+    }
+
+    .status-bar {
+      display: flex;
+      gap: 10px;
+      margin: 18px 0 22px;
+      flex-wrap: wrap;
+    }
+
+    .status-pill {
+      flex: 1;
+      min-width: 140px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 0.875rem;
+      color: var(--ink-muted);
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .status-pill strong {
+      color: var(--accent);
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status-pill.done {
+      background: var(--accent-soft);
+      border-color: transparent;
+      color: var(--accent-hover);
+    }
+
+    .status-pill.done strong { color: var(--accent-hover); }
+
+    section.card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 16px 8px;
+      gap: 12px;
+    }
+
+    .section-head h2 {
+      font-size: 1.05rem;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-emoji {
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .section-meta {
+      font-size: 0.8rem;
+      color: var(--ink-faint);
+      font-variant-numeric: tabular-nums;
+    }
+
+    ul.list {
+      list-style: none;
+      padding: 4px 8px 8px;
+    }
+
+    .item {
+      display: flex;
+      align-items: stretch;
+      gap: 4px;
+      border-radius: 12px;
+      min-height: var(--tap);
+      transition: background 0.15s ease;
+    }
+
+    .item:hover { background: var(--surface-muted); }
+
+    .item.checked .item-main {
+      color: var(--ink-faint);
+    }
+
+    .item.checked .item-label {
+      text-decoration: line-through;
+      text-decoration-thickness: 1.5px;
+      text-decoration-color: var(--ink-faint);
+    }
+
+    .item-main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 10px 12px 12px;
+      background: none;
+      border: none;
+      font: inherit;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+      border-radius: 12px;
+      min-width: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .item-main:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .check {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      transition: background 0.15s, border-color 0.15s;
+      background: var(--surface);
+    }
+
+    .item.checked .check {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .check svg {
+      width: 14px;
+      height: 14px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .item.checked .check svg { opacity: 1; }
+
+    .item-label {
+      font-size: 1.05rem;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .item-actions {
+      display: flex;
+      align-items: center;
+      padding-right: 6px;
+      gap: 2px;
+      opacity: 0.55;
+    }
+
+    .item:hover .item-actions,
+    .item:focus-within .item-actions { opacity: 1; }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: transparent;
+      border-radius: 10px;
+      color: var(--ink-muted);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      font-size: 1.05rem;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .icon-btn:hover { background: var(--surface-muted); color: var(--ink); }
+    .icon-btn.danger:hover { background: var(--danger-soft); color: var(--danger); }
+    .icon-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    .add-row {
+      display: flex;
+      gap: 8px;
+      padding: 4px 12px 14px;
+      align-items: center;
+    }
+
+    .add-row input {
+      flex: 1;
+      min-height: 44px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font: inherit;
+      font-size: 0.95rem;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    .add-row input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .add-row input::placeholder { color: var(--ink-faint); }
+
+    .btn {
+      border: none;
+      border-radius: 12px;
+      font: inherit;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      padding: 10px 16px;
+      min-height: 44px;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .btn-accent {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-accent:hover { background: var(--accent-hover); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink-muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover { background: var(--surface-muted); color: var(--ink); }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .settings {
+      margin-top: 8px;
+    }
+
+    .settings summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: var(--ink);
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .settings summary::-webkit-details-marker { display: none; }
+
+    .settings summary::after {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-right: 2px solid var(--ink-muted);
+      border-bottom: 2px solid var(--ink-muted);
+      transform: rotate(45deg);
+      transition: transform 0.2s;
+      margin-right: 4px;
+    }
+
+    .settings[open] summary::after {
+      transform: rotate(-135deg);
+      margin-top: 4px;
+    }
+
+    .settings-body {
+      padding: 0 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--ink-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .field input[type="time"] {
+      min-height: 44px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font: inherit;
+      font-size: 1rem;
+      background: var(--bg);
+      color: var(--ink);
+      max-width: 160px;
+    }
+
+    .field input[type="time"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 44px;
+    }
+
+    .toggle-row span {
+      font-size: 0.95rem;
+      color: var(--ink);
+    }
+
+    .switch {
+      position: relative;
+      width: 48px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    .switch .slider {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .switch .slider::before {
+      content: "";
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+
+    .switch input:checked + .slider { background: var(--accent); }
+    .switch input:checked + .slider::before { transform: translateX(20px); }
+    .switch input:focus-visible + .slider {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+
+    .backup-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: var(--ink-faint);
+      line-height: 1.4;
+    }
+
+    .foot-note {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--ink-faint);
+      padding: 0 8px;
+    }
+
+    /* In-page banner when Notification denied / unavailable */
+    .banner {
+      position: fixed;
+      left: 16px;
+      right: 16px;
+      bottom: max(16px, env(safe-area-inset-bottom));
+      max-width: 408px;
+      margin: 0 auto;
+      background: var(--ink);
+      color: #fff;
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: none;
+      align-items: flex-start;
+      gap: 12px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.2);
+      z-index: 100;
+      animation: slideUp 0.25s ease;
+    }
+
+    .banner.show { display: flex; }
+
+    .banner-text { flex: 1; font-size: 0.9rem; line-height: 1.4; }
+    .banner-text strong { display: block; margin-bottom: 2px; font-weight: 650; }
+
+    .banner-close {
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      font-size: 1.25rem;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+
+    .banner-close:hover { color: #fff; }
+
+    @keyframes slideUp {
+      from { transform: translateY(12px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .rename-input {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font: inherit;
+      font-size: 1.05rem;
+      font-weight: 500;
+      background: #fff;
+      color: var(--ink);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .empty {
+      padding: 8px 16px 16px;
+      font-size: 0.9rem;
+      color: var(--ink-faint);
+    }
+
+    .item-text {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent-hover);
+      white-space: nowrap;
+      flex-shrink: 0;
+      letter-spacing: 0.01em;
+    }
+
+    .off-note {
+      list-style: none;
+      padding: 4px 16px 12px;
+      font-size: 0.8rem;
+      color: var(--ink-faint);
+      line-height: 1.4;
+    }
+
+    .edit-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 6px 8px;
+      min-width: 0;
+    }
+
+    .edit-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .schedule-toggle {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .schedule-toggle button {
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg);
+      color: var(--ink-muted);
+      font: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 6px 12px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .schedule-toggle button.active {
+      background: var(--accent-soft);
+      color: var(--accent-hover);
+      border-color: transparent;
+    }
+
+    .schedule-toggle button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+
+    .header-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .streak-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--ink-faint);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      letter-spacing: 0.01em;
+    }
+
+    .streak-label[hidden] { display: none; }
+
+    .celebration {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 0 18px;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, var(--accent-soft), #f3efe6);
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      animation: celeIn 0.35s ease;
+    }
+
+    .celebration.show { display: flex; }
+
+    .celebration-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .celebration-title {
+      font-size: 1rem;
+      font-weight: 650;
+      color: var(--accent-hover);
+      letter-spacing: -0.01em;
+    }
+
+    .celebration-streak {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--ink-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    @keyframes celeIn {
+      from { transform: translateY(-6px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .confetti-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 90;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      top: -12px;
+      font-size: 1.1rem;
+      line-height: 1;
+      animation: confettiFall 1.5s ease-out forwards;
+      will-change: transform, opacity;
+    }
+
+    @keyframes confettiFall {
+      0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); opacity: 1; }
+      80% { opacity: 1; }
+      100% { transform: translate3d(var(--dx), var(--dy), 0) rotate(var(--rot)) scale(0.85); opacity: 0; }
+    }
+
+    @media (min-width: 480px) {
+      body { padding-top: 40px; }
+      header h1 { font-size: 1.85rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="header-row">
+        <h1>Daily Vitamins</h1>
+        <span class="streak-label" id="streakLabel" hidden>Streak: 0</span>
+      </div>
+      <p class="subtitle" id="dateLabel">Today</p>
+    </header>
+
+    <div class="status-bar" aria-live="polite">
+      <div class="status-pill" id="morningStatus">
+        <span>Morning left</span>
+        <strong>—</strong>
+      </div>
+      <div class="status-pill" id="nightStatus">
+        <span>Night left</span>
+        <strong>—</strong>
+      </div>
+    </div>
+
+    <div class="celebration" id="celebration" role="status" aria-live="polite" hidden>
+      <div class="celebration-copy">
+        <span class="celebration-title">Day complete ✨</span>
+        <span class="celebration-streak" id="celeStreak">🔥 1-day streak</span>
+      </div>
+    </div>
+
+    <div class="confetti-layer" id="confettiLayer" aria-hidden="true"></div>
+
+    <section class="card" aria-labelledby="morning-title">
+      <div class="section-head">
+        <h2 id="morning-title"><span class="section-emoji" aria-hidden="true">☀️</span> Morning</h2>
+        <span class="section-meta" id="morningMeta"></span>
+      </div>
+      <ul class="list" id="morningList"></ul>
+      <div class="add-row">
+        <input type="text" id="morningAdd" placeholder="Add vitamin…" maxlength="60" autocomplete="off" />
+        <button type="button" class="btn btn-accent" id="morningAddBtn" aria-label="Add morning vitamin">Add</button>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="night-title">
+      <div class="section-head">
+        <h2 id="night-title"><span class="section-emoji" aria-hidden="true">🌙</span> Night</h2>
+        <span class="section-meta" id="nightMeta"></span>
+      </div>
+      <ul class="list" id="nightList"></ul>
+      <div class="add-row">
+        <input type="text" id="nightAdd" placeholder="Add vitamin…" maxlength="60" autocomplete="off" />
+        <button type="button" class="btn btn-accent" id="nightAddBtn" aria-label="Add night vitamin">Add</button>
+      </div>
+    </section>
+
+    <section class="card settings">
+      <details>
+        <summary>Reminders &amp; settings</summary>
+        <div class="settings-body">
+          <div class="toggle-row">
+            <span>Enable reminders</span>
+            <label class="switch">
+              <input type="checkbox" id="remindersEnabled" />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="field">
+            <label for="morningTime">Morning time</label>
+            <input type="time" id="morningTime" value="08:00" />
+          </div>
+          <div class="field">
+            <label for="nightTime">Night time</label>
+            <input type="time" id="nightTime" value="21:00" />
+          </div>
+          <p class="hint" id="notifHint">
+            Reminders fire while this tab is open. If you allow notifications, you’ll get a system Notification; otherwise a small banner appears in-page.
+            OS-level push when the tab is closed needs a PWA / service worker — not included in v1.
+          </p>
+          <div class="field">
+            <label>Backup</label>
+            <div class="backup-row">
+              <button type="button" class="btn btn-ghost" id="exportBackupBtn">Export</button>
+              <button type="button" class="btn btn-ghost" id="importBackupBtn">Import</button>
+              <input type="file" id="importBackupFile" accept="application/json,.json" hidden />
+            </div>
+            <p class="hint">Export after you set up your list. Import restores vitamins, checks, and streak.</p>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <p class="foot-note">Checklist resets at midnight local time. Vitamin names stay. Every-other-day vitamins only appear on their days.</p>
+  </div>
+
+  <div class="banner" id="banner" role="status" aria-live="polite">
+    <div class="banner-text">
+      <strong id="bannerTitle">Reminder</strong>
+      <span id="bannerBody"></span>
+    </div>
+    <button type="button" class="banner-close" id="bannerClose" aria-label="Dismiss">×</button>
+  </div>
+
+  <script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "daily-vitamins-v1";
+  var DEFAULTS = {
+    vitamins: {
+      morning: [
+        { id: uid(), name: "Multivitamin" },
+        { id: uid(), name: "Vitamin D", schedule: "everyOther", scheduleStart: "2026-09-20" },
+        { id: uid(), name: "Omega-3" }
+      ],
+      night: [
+        { id: uid(), name: "Magnesium" },
+        { id: uid(), name: "Zinc" }
+      ]
+    },
+    checks: { morning: {}, night: {} },
+    dayKey: todayKey(),
+    streak: { count: 0, lastPerfectDay: null },
+    celebrationPlayedForDay: null,
+    settings: {
+      remindersEnabled: false,
+      morningTime: "08:00",
+      nightTime: "21:00",
+      lastFired: { morning: null, night: null }
+    }
+  };
+
+  var state = loadState();
+  var editingId = null;
+  var reminderTimer = null;
+
+  function uid() {
+    return "v_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  }
+
+  function todayKey() {
+    var d = new Date();
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return structuredClone(DEFAULTS);
+      var parsed = JSON.parse(raw);
+      return migrate(parsed);
+    } catch (e) {
+      return structuredClone(DEFAULTS);
+    }
+  }
+
+  function migrate(parsed) {
+    var base = structuredClone(DEFAULTS);
+    if (!parsed || typeof parsed !== "object") return base;
+    if (parsed.vitamins && parsed.vitamins.morning && parsed.vitamins.night) {
+      base.vitamins = parsed.vitamins;
+    }
+    if (parsed.checks) base.checks = parsed.checks;
+    if (parsed.dayKey) base.dayKey = parsed.dayKey;
+    if (parsed.settings) {
+      base.settings = Object.assign({}, base.settings, parsed.settings);
+      if (!base.settings.lastFired) base.settings.lastFired = { morning: null, night: null };
+    }
+    if (parsed.streak && typeof parsed.streak === "object") {
+      base.streak = {
+        count: typeof parsed.streak.count === "number" ? parsed.streak.count : 0,
+        lastPerfectDay: parsed.streak.lastPerfectDay || null
+      };
+    } else {
+      base.streak = { count: 0, lastPerfectDay: null };
+    }
+    if (parsed.celebrationPlayedForDay) {
+      base.celebrationPlayedForDay = parsed.celebrationPlayedForDay;
+    } else {
+      base.celebrationPlayedForDay = null;
+    }
+    ["morning", "night"].forEach(function (section) {
+      (base.vitamins[section] || []).forEach(function (v) {
+        if (v.name && String(v.name).toLowerCase() === "vitamin d" && v.schedule !== "everyOther") {
+          v.schedule = "everyOther";
+          v.scheduleStart = "2026-09-20";
+        }
+        if (!v.schedule) v.schedule = "daily";
+      });
+    });
+    return base;
+  }
+
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) { /* ignore quota */ }
+  }
+
+  function ensureDay() {
+    var key = todayKey();
+    if (state.dayKey !== key) {
+      state.dayKey = key;
+      state.checks = { morning: {}, night: {} };
+      state.settings.lastFired = { morning: null, night: null };
+      saveState();
+    }
+  }
+
+  function formatDateLabel(key) {
+    var parts = key.split("-");
+    var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    return d.toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "short",
+      day: "numeric"
+    });
+  }
+
+  function daysBetween(startKey, endKey) {
+    var a = startKey.split("-").map(Number);
+    var b = endKey.split("-").map(Number);
+    var d0 = new Date(a[0], a[1] - 1, a[2]);
+    var d1 = new Date(b[0], b[1] - 1, b[2]);
+    return Math.floor((d1.getTime() - d0.getTime()) / 86400000);
+  }
+
+  function isDueToday(item) {
+    var schedule = item.schedule || "daily";
+    if (schedule !== "everyOther") return true;
+    var start = item.scheduleStart;
+    if (!start) return true;
+    var today = todayKey();
+    if (today < start) return false;
+    return daysBetween(start, today) % 2 === 0;
+  }
+
+  function dueItems(section) {
+    return (state.vitamins[section] || []).filter(isDueToday);
+  }
+
+  function offTodayItems(section) {
+    return (state.vitamins[section] || []).filter(function (item) {
+      return !isDueToday(item);
+    });
+  }
+
+  function remaining(section) {
+    var items = dueItems(section);
+    var checks = state.checks[section] || {};
+    var left = 0;
+    for (var i = 0; i < items.length; i++) {
+      if (!checks[items[i].id]) left++;
+    }
+    return { left: left, total: items.length };
+  }
+
+  function yesterdayKey() {
+    var d = new Date();
+    d.setDate(d.getDate() - 1);
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + day;
+  }
+
+  function isTodayPerfect() {
+    var m = remaining("morning");
+    var n = remaining("night");
+    var totalDue = m.total + n.total;
+    if (totalDue === 0) return false;
+    return m.left === 0 && n.left === 0;
+  }
+
+  function maybeRecordPerfectDay() {
+    if (!isTodayPerfect()) return;
+    if (!state.streak) state.streak = { count: 0, lastPerfectDay: null };
+    var today = todayKey();
+    if (state.streak.lastPerfectDay === today) return;
+    if (state.streak.lastPerfectDay === yesterdayKey()) {
+      state.streak.count += 1;
+    } else {
+      state.streak.count = 1;
+    }
+    state.streak.lastPerfectDay = today;
+    saveState();
+  }
+
+  function playCelebration() {
+    var layer = document.getElementById("confettiLayer");
+    if (!layer) return;
+    layer.innerHTML = "";
+    var emojis = ["✨", "🌿", "💚", "⭐", "🎉", "💫"];
+    var count = 18;
+    for (var i = 0; i < count; i++) {
+      var piece = document.createElement("span");
+      piece.className = "confetti-piece";
+      piece.textContent = emojis[i % emojis.length];
+      var startX = 10 + Math.random() * 80;
+      var dx = (Math.random() - 0.5) * 120;
+      var dy = 180 + Math.random() * 280;
+      var rot = (Math.random() - 0.5) * 520;
+      piece.style.left = startX + "vw";
+      piece.style.animationDelay = (Math.random() * 0.25) + "s";
+      piece.style.setProperty("--dx", dx + "px");
+      piece.style.setProperty("--dy", dy + "px");
+      piece.style.setProperty("--rot", rot + "deg");
+      layer.appendChild(piece);
+    }
+    setTimeout(function () {
+      layer.innerHTML = "";
+    }, 1800);
+    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+      try { navigator.vibrate(30); } catch (e) { /* ignore */ }
+    }
+  }
+
+  function updateCelebration() {
+    maybeRecordPerfectDay();
+    var perfect = isTodayPerfect();
+    var count = (state.streak && state.streak.count) || 0;
+    var streakLabel = document.getElementById("streakLabel");
+    if (streakLabel) {
+      if (count > 0) {
+        streakLabel.textContent = "Streak: " + count;
+        streakLabel.hidden = false;
+      } else {
+        streakLabel.hidden = true;
+      }
+    }
+
+    var cele = document.getElementById("celebration");
+    var celeStreak = document.getElementById("celeStreak");
+    if (cele) {
+      if (perfect) {
+        cele.hidden = false;
+        cele.classList.add("show");
+        if (celeStreak) {
+          celeStreak.textContent = "🔥 " + count + "-day streak";
+        }
+        var today = todayKey();
+        if (state.celebrationPlayedForDay !== today) {
+          state.celebrationPlayedForDay = today;
+          saveState();
+          playCelebration();
+        }
+      } else {
+        cele.hidden = true;
+        cele.classList.remove("show");
+      }
+    }
+  }
+
+  function updateStatus() {
+    var m = remaining("morning");
+    var n = remaining("night");
+    var mEl = document.getElementById("morningStatus");
+    var nEl = document.getElementById("nightStatus");
+    mEl.querySelector("strong").textContent = m.total === 0 ? "—" : String(m.left);
+    nEl.querySelector("strong").textContent = n.total === 0 ? "—" : String(n.left);
+    mEl.classList.toggle("done", m.total > 0 && m.left === 0);
+    nEl.classList.toggle("done", n.total > 0 && n.left === 0);
+    document.getElementById("morningMeta").textContent =
+      m.total ? (m.total - m.left) + "/" + m.total : "";
+    document.getElementById("nightMeta").textContent =
+      n.total ? (n.total - n.left) + "/" + n.total : "";
+    updateCelebration();
+  }
+
+  function checkSvg() {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+  }
+
+  function renderSection(section) {
+    var list = document.getElementById(section + "List");
+    var items = state.vitamins[section];
+    var checks = state.checks[section] || {};
+    var due = dueItems(section);
+    var off = offTodayItems(section);
+    list.innerHTML = "";
+
+    if (!items.length) {
+      var empty = document.createElement("li");
+      empty.className = "empty";
+      empty.textContent = "No vitamins yet — add one below.";
+      list.appendChild(empty);
+      return;
+    }
+
+    due.forEach(function (item) {
+      var li = document.createElement("li");
+      li.className = "item" + (checks[item.id] ? " checked" : "");
+      li.dataset.id = item.id;
+
+      if (editingId === item.id) {
+        var sched = item.schedule === "everyOther" ? "everyOther" : "daily";
+        var wrap = document.createElement("div");
+        wrap.className = "edit-wrap";
+        wrap.innerHTML =
+          '<div class="edit-row">' +
+          '<input class="rename-input" type="text" maxlength="60" value="' + escapeAttr(item.name) + '" />' +
+          '<button type="button" class="btn btn-accent save-rename">Save</button>' +
+          '<button type="button" class="btn btn-ghost cancel-rename">Cancel</button>' +
+          "</div>" +
+          '<div class="schedule-toggle" role="group" aria-label="Schedule">' +
+          '<button type="button" data-schedule="daily"' + (sched === "daily" ? ' class="active"' : "") + ">Daily</button>" +
+          '<button type="button" data-schedule="everyOther"' + (sched === "everyOther" ? ' class="active"' : "") + ">Every other day</button>" +
+          "</div>";
+        li.appendChild(wrap);
+        list.appendChild(li);
+        var input = li.querySelector(".rename-input");
+        var selectedSchedule = sched;
+        li.querySelectorAll(".schedule-toggle button").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            selectedSchedule = btn.getAttribute("data-schedule");
+            li.querySelectorAll(".schedule-toggle button").forEach(function (b) {
+              b.classList.toggle("active", b.getAttribute("data-schedule") === selectedSchedule);
+            });
+          });
+        });
+        input.focus();
+        input.select();
+        li.querySelector(".save-rename").addEventListener("click", function () {
+          commitRename(section, item.id, input.value, selectedSchedule);
+        });
+        li.querySelector(".cancel-rename").addEventListener("click", function () {
+          editingId = null;
+          render();
+        });
+        input.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") commitRename(section, item.id, input.value, selectedSchedule);
+          if (e.key === "Escape") { editingId = null; render(); }
+        });
+        return;
+      }
+
+      var main = document.createElement("button");
+      main.type = "button";
+      main.className = "item-main";
+      main.setAttribute("aria-pressed", checks[item.id] ? "true" : "false");
+      var chip = item.schedule === "everyOther"
+        ? '<span class="chip">every other day</span>'
+        : "";
+      main.innerHTML =
+        '<span class="check">' + checkSvg() + "</span>" +
+        '<span class="item-text"><span class="item-label">' + escapeHtml(item.name) + "</span>" + chip + "</span>";
+      main.addEventListener("click", function () {
+        toggleCheck(section, item.id);
+      });
+
+      var actions = document.createElement("div");
+      actions.className = "item-actions";
+      actions.innerHTML =
+        '<button type="button" class="icon-btn rename-btn" title="Rename" aria-label="Rename ' + escapeAttr(item.name) + '">✎</button>' +
+        '<button type="button" class="icon-btn danger remove-btn" title="Remove" aria-label="Remove ' + escapeAttr(item.name) + '">×</button>';
+
+      actions.querySelector(".rename-btn").addEventListener("click", function (e) {
+        e.stopPropagation();
+        editingId = item.id;
+        render();
+      });
+      actions.querySelector(".remove-btn").addEventListener("click", function (e) {
+        e.stopPropagation();
+        removeVitamin(section, item.id);
+      });
+
+      li.appendChild(main);
+      li.appendChild(actions);
+      list.appendChild(li);
+    });
+
+    if (off.length) {
+      var note = document.createElement("li");
+      note.className = "off-note";
+      note.textContent = "Off today: " + off.map(function (v) {
+        var label = v.name;
+        if (v.schedule === "everyOther") label += " (every other day)";
+        return label;
+      }).join(", ");
+      list.appendChild(note);
+    }
+
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function escapeAttr(s) {
+    return escapeHtml(s).replace(/'/g, "&#39;");
+  }
+
+  function toggleCheck(section, id) {
+    ensureDay();
+    if (!state.checks[section]) state.checks[section] = {};
+    if (state.checks[section][id]) {
+      delete state.checks[section][id];
+    } else {
+      state.checks[section][id] = true;
+    }
+    saveState();
+    render();
+  }
+
+  function addVitamin(section, name) {
+    name = (name || "").trim();
+    if (!name) return;
+    state.vitamins[section].push({ id: uid(), name: name, schedule: "daily" });
+    saveState();
+    render();
+  }
+
+  function commitRename(section, id, name, schedule) {
+    name = (name || "").trim();
+    editingId = null;
+    if (!name) { render(); return; }
+    var items = state.vitamins[section];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].id === id) {
+        items[i].name = name;
+        if (schedule === "everyOther") {
+          items[i].schedule = "everyOther";
+          if (!items[i].scheduleStart) items[i].scheduleStart = todayKey();
+        } else if (schedule === "daily") {
+          items[i].schedule = "daily";
+        } else if (!items[i].schedule) {
+          items[i].schedule = "daily";
+        }
+        break;
+      }
+    }
+    saveState();
+    render();
+  }
+
+  function removeVitamin(section, id) {
+    state.vitamins[section] = state.vitamins[section].filter(function (v) {
+      return v.id !== id;
+    });
+    if (state.checks[section]) delete state.checks[section][id];
+    if (editingId === id) editingId = null;
+    saveState();
+    render();
+  }
+
+  function render() {
+    ensureDay();
+    document.getElementById("dateLabel").textContent = formatDateLabel(state.dayKey);
+    renderSection("morning");
+    renderSection("night");
+    updateStatus();
+    syncSettingsUI();
+  }
+
+  function syncSettingsUI() {
+    document.getElementById("remindersEnabled").checked = !!state.settings.remindersEnabled;
+    document.getElementById("morningTime").value = state.settings.morningTime || "08:00";
+    document.getElementById("nightTime").value = state.settings.nightTime || "21:00";
+  }
+
+
+  function exportBackup() {
+    try {
+      var payload = {
+        vitamins: state.vitamins,
+        checks: state.checks,
+        dayKey: state.dayKey,
+        settings: state.settings,
+        streak: state.streak,
+        celebrationPlayedForDay: state.celebrationPlayedForDay
+      };
+      var json = JSON.stringify(payload, null, 2);
+      var blob = new Blob([json], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "daily-vitamins-backup-" + todayKey() + ".json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert("Could not export backup. Please try again.");
+    }
+  }
+
+  function importBackupFromFile(file) {
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var parsed = JSON.parse(reader.result);
+        if (
+          !parsed ||
+          typeof parsed !== "object" ||
+          !parsed.vitamins ||
+          !Array.isArray(parsed.vitamins.morning) ||
+          !Array.isArray(parsed.vitamins.night)
+        ) {
+          alert("Invalid backup file. It must include vitamins.morning and vitamins.night arrays.");
+          return;
+        }
+        if (!window.confirm("Replace your current vitamins and progress with this backup?")) {
+          return;
+        }
+        state = migrate(parsed);
+        saveState();
+        render();
+        showBanner("Backup restored.", "Your vitamins, checks, and streak were restored from the file.");
+        setTimeout(hideBanner, 3500);
+      } catch (e) {
+        alert("Could not import backup. The file may be invalid or corrupted.");
+      }
+    };
+    reader.onerror = function () {
+      alert("Could not read the selected file.");
+    };
+    reader.readAsText(file);
+  }
+
+  function wireUI() {
+    document.getElementById("morningAddBtn").addEventListener("click", function () {
+      var input = document.getElementById("morningAdd");
+      addVitamin("morning", input.value);
+      input.value = "";
+      input.focus();
+    });
+    document.getElementById("nightAddBtn").addEventListener("click", function () {
+      var input = document.getElementById("nightAdd");
+      addVitamin("night", input.value);
+      input.value = "";
+      input.focus();
+    });
+    ["morningAdd", "nightAdd"].forEach(function (id) {
+      document.getElementById(id).addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          document.getElementById(id === "morningAdd" ? "morningAddBtn" : "nightAddBtn").click();
+        }
+      });
+    });
+
+    document.getElementById("remindersEnabled").addEventListener("change", function (e) {
+      var on = e.target.checked;
+      if (on && "Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission().then(function () {
+          state.settings.remindersEnabled = true;
+          saveState();
+          updateNotifHint();
+        });
+      } else {
+        state.settings.remindersEnabled = on;
+        saveState();
+        updateNotifHint();
+      }
+    });
+
+    document.getElementById("morningTime").addEventListener("change", function (e) {
+      state.settings.morningTime = e.target.value || "08:00";
+      state.settings.lastFired.morning = null;
+      saveState();
+    });
+    document.getElementById("nightTime").addEventListener("change", function (e) {
+      state.settings.nightTime = e.target.value || "21:00";
+      state.settings.lastFired.night = null;
+      saveState();
+    });
+
+
+    document.getElementById("exportBackupBtn").addEventListener("click", exportBackup);
+    document.getElementById("importBackupBtn").addEventListener("click", function () {
+      document.getElementById("importBackupFile").click();
+    });
+    document.getElementById("importBackupFile").addEventListener("change", function (e) {
+      var file = e.target.files && e.target.files[0];
+      e.target.value = "";
+      importBackupFromFile(file);
+    });
+
+    document.getElementById("bannerClose").addEventListener("click", hideBanner);
+  }
+
+  function updateNotifHint() {
+    var hint = document.getElementById("notifHint");
+    var perm = ("Notification" in window) ? Notification.permission : "unsupported";
+    var base =
+      "Reminders fire while this tab is open. If you allow notifications, you’ll get a system Notification; otherwise a small banner appears in-page. " +
+      "OS-level push when the tab is closed needs a PWA / service worker — not included in v1.";
+    if (perm === "denied") {
+      hint.textContent = "Notifications are blocked in this browser — reminders will use an in-page banner instead. " + base;
+    } else if (perm === "granted") {
+      hint.textContent = "Notifications allowed. " + base;
+    } else {
+      hint.textContent = base;
+    }
+  }
+
+  function showBanner(title, body) {
+    document.getElementById("bannerTitle").textContent = title;
+    document.getElementById("bannerBody").textContent = body;
+    document.getElementById("banner").classList.add("show");
+  }
+
+  function hideBanner() {
+    document.getElementById("banner").classList.remove("show");
+  }
+
+  function fireReminder(section) {
+    var rem = remaining(section);
+    if (rem.total === 0 || rem.left === 0) return;
+
+    var title = section === "morning" ? "Morning vitamins" : "Night vitamins";
+    var body = rem.left + " left today — open Daily Vitamins to check them off.";
+
+    var usedNotif = false;
+    if ("Notification" in window && Notification.permission === "granted") {
+      try {
+        new Notification(title, { body: body, tag: "daily-vitamins-" + section });
+        usedNotif = true;
+      } catch (e) { /* fall through */ }
+    }
+    if (!usedNotif) {
+      showBanner(title, body);
+    }
+  }
+
+  function checkReminders() {
+    ensureDay();
+    if (!state.settings.remindersEnabled) return;
+
+    var now = new Date();
+    var hh = String(now.getHours()).padStart(2, "0");
+    var mm = String(now.getMinutes()).padStart(2, "0");
+    var current = hh + ":" + mm;
+    var day = todayKey();
+
+    ["morning", "night"].forEach(function (section) {
+      var target = state.settings[section + "Time"];
+      if (!target) return;
+      if (current !== target) return;
+      if (state.settings.lastFired[section] === day + "T" + target) return;
+      state.settings.lastFired[section] = day + "T" + target;
+      saveState();
+      fireReminder(section);
+    });
+  }
+
+  function startReminderLoop() {
+    if (reminderTimer) clearInterval(reminderTimer);
+    checkReminders();
+    reminderTimer = setInterval(checkReminders, 15000);
+  }
+
+  // Day rollover: re-check when tab becomes visible or every minute
+  setInterval(function () {
+    var prev = state.dayKey;
+    ensureDay();
+    if (state.dayKey !== prev) render();
+  }, 30000);
+
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) {
+      var prev = state.dayKey;
+      ensureDay();
+      if (state.dayKey !== prev) render();
+      else updateStatus();
+      checkReminders();
+    }
+  });
+
+  wireUI();
+  render();
+  updateNotifHint();
+  startReminderLoop();
+})();
+  </script>
+</body>
+</html>
